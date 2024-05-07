@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "foundation"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+graphql-core = "^3.2.3"
+gql = "^3.5.0"
+psycopg2-binary = "^2.9.9"
+pydantic = "^2.7.1"
+sqlalchemy = "^2.0.30"
+alembic = "^1.13.1"
+aiohttp = "^3.9.5"
+retry = "^0.9.2"
+fastapi = "^0.111.0"
+uvicorn = "^0.29.0"
+apscheduler = "^3.10.4"
+strawberry-graphql = {extras = ["fastapi"], version = "^0.227.3"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,9 @@
+CREATE SCHEMA IF NOT EXISTS foundation AUTHORIZATION foundation;
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+
+SELECT uuid_generate_v4();
+
+SET TIME ZONE 'UTC';
+
