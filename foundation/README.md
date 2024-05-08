@@ -26,6 +26,22 @@ alembic upgrade head
 python -m foundation.app
 ```
 
+## DB Schema Management
+
+As it can be seen, the database schema is being managed by `alembic`. It's a seamless integration with sqlalchemy and creating / dropping DB schema. More info can be found here: https://alembic.sqlalchemy.org/en/latest/tutorial.html
+
+```sh
+# To add a migration:
+alembic revision -m "migration_name"
+
+# To get to latest schema
+alembic upgrade head
+
+# To downgrade a migration
+alembic downgrade -1
+```
+
+As usual this needs to be run from project root as alembic is part of `pyproject.toml`
 ## Supported Tokens
 
 At the moment tokens are added to the `foundation/tokens.py` file in a dictionary with their `token_id` and `symbol`. If the user wants to add support more tokens, simply add the `token_id` and `symbol` to the existing dictionary and rebuild the docker image. For example:
@@ -34,7 +50,7 @@ docker build . -t foundation:latest
 ```
 ## Environment Variables
 
-All environment variables are using defaul values at the moment. Most of them are self explanatory (i.e. DB variables). Following contains the significance of less obvious ones:
+All environment variables are using default values at the moment. Most of them are self explanatory (i.e. DB variables). Following contains the significance of less obvious ones:
 
 * MIN_CONN: Minimum number of connections in DB connection pool.
 * MAX_CONN: Maximum number of connections in DB connection pool.
@@ -239,6 +255,6 @@ Overall I felt the tools I chose and the way I designed the backend API and Data
 I think initial time I spent on experimenting with Graphene to build the server could be avoided. I went with most number of github stars without checking FastAPI doc which clearly favours Strawberry. Although both are on the recommended libraries on graphql website. In addition, I think the polling algorithm can be improved while scaling. One way would be to have two polling interval for two different kind of data we are fetching with `token` and `tokenHourDatas`.
 
 ### Future Improvement
-Depending on the scope, I would probably add an endpoint to add additional token support dynamically. At the moment, it requires a rebuilding of the image which doesn't take long time because of how I designed the docker file with caching but still with an endpoint we could avoid this step. The other thing is I would spend a little more time trying to find more edge cases / data load.
+Depending on the scope, I would probably add an endpoint to add additional token support dynamically. At the moment, it requires a rebuilding of the image which doesn't take long time because of how I designed the docker file with caching but still with an endpoint we could avoid this step. The other thing is I would spend a little more time trying to find more edge cases / data load. In addition, as it can be seen, some coins do not have OHLC data for all time interval, a function that backfills with linear interpolation could be added for the missing intervals.
 
 
