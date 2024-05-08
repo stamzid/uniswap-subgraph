@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import threading
-import multiprocessing
-from multiprocessing import Pipe
 import uvicorn
 from fastapi import FastAPI
 from strawberry.fastapi import GraphQLRouter
@@ -14,6 +12,7 @@ from foundation.utils.logging_utils import service_logger
 from foundation.settings import LOOKBACK_DAYS, DATA_POLL_INTERVAL
 from datetime import datetime, timedelta
 from foundation.settings import PERSISTANCE_MODE
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = FastAPI()
 
@@ -50,70 +49,25 @@ def data_load(initial: bool = False):
         db_manager.execute_write_query(delete_older_data, params)
 
 
-def schedule_data_load():
-    """Schedule data_load to run every 5 minutes."""
-    service_logger.info("starting polling.")
-    threading.Timer(DATA_POLL_INTERVAL, schedule_data_load).start()
-
-
-def data_poll(conn):
+def start_scheduler():
     """
-    Handles the initiation of data operations based on the server's start signal.
-    Args:
-        conn (multiprocessing.Connection): Connection for communication between processes.
-    Description:
-        Waits to receive a server start signal through a pipe, then starts scheduled data loading
-        tasks and logs the event. Closes the connection after scheduling the tasks.
+    Starts the scheduler to run data_load every DATA_POLL_INTERVAL seconds.
     """
-    server_started = conn.recv()
-    if server_started:
-        service_logger.info("Server is up, starting data operations...")
-        schedule_data_load()
-    conn.close()
-
-
-def run_server(conn):
-    """
-    Loads data and starts the web server.
-    Args:
-        conn (multiprocessing.Connection): Connection for communication to signal data loading completion.
-
-    Description:
-        Initiates data loading, starts the FastAPI server, and signals the completion of data loading
-        to the data polling process. Closes the connection after sending the signal.
-    """
-    service_logger.info("Populating Data")
-    data_load(True)
-    service_logger.info("Starting server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-    conn.send(True)
-    conn.close()
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(lambda: data_load(False), 'interval', seconds=DATA_POLL_INTERVAL)
+    scheduler.start()
 
 
 if __name__ == "__main__":
     """
-    Main execution block to start server and data processes and handle shutdown on KeyboardInterrupt.
-    Description:
-        Starts the server and data loading processes in parallel using multiprocessing. Joins the
-        processes to the main thread and handles graceful shutdown and resource cleanup on interruption.
+    Main execution block to start the server and handle shutdown on KeyboardInterrupt.
     """
     try:
-        parent_conn, child_conn = Pipe()
-        data_process = multiprocessing.Process(target=data_poll, args=(child_conn,))
-        data_process.start()
-
-        server_process = multiprocessing.Process(target=run_server, args=(parent_conn,))
-        server_process.start()
-
-        server_process.join()
-        data_process.join()
-
+        service_logger.info("Populating Initial Data")
+        data_load(True)
+        service_logger.info("Starting scheduler...")
+        start_scheduler()
+        service_logger.info("Starting server...")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
     except KeyboardInterrupt:
         service_logger.warning("Shutting down application due to KeyboardInterrupt")
-        data_process.terminate()
-        server_process.terminate()
-
-        if not parent_conn.closed:
-            parent_conn.close()
-        if not child_conn.closed:
-            child_conn.close()
