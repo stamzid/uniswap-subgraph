@@ -19,7 +19,13 @@ fastapi = "^0.111.0"
 uvicorn = "^0.29.0"
 apscheduler = "^3.10.4"
 strawberry-graphql = {extras = ["fastapi"], version = "^0.227.3"}
+backoff = "^2.2.1"
 
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.6"
+pytest-docker = "^3.1.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -19,6 +19,7 @@ services:
       - ./sql/create_schema.sql:/docker-entrypoint-initdb.d/create_schema.sql
 
   foundation:
+    image: foundation:latest
     build:
       context: .
       dockerfile: Dockerfile

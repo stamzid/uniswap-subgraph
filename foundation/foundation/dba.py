@@ -41,7 +41,7 @@ DO UPDATE SET
     decimals = EXCLUDED.decimals
 RETURNING id;""")
 
-get_tokens_metadata = sql.SQL("""SELECT * from foundation.token""")
+get_token_metadata = sql.SQL("""SELECT * from foundation.token WHERE id =%(token_id)s""")
 get_latest_timestamp = sql.SQL("""
 SELECT
     token_id,
@@ -51,8 +51,33 @@ FROM
 GROUP BY token_id;
 """)
 
+
+chart_query = sql.SQL("""
+    SELECT
+        MIN(timestamp) AS interval_start,
+        array_agg(open ORDER BY timestamp) AS opens,
+        array_agg(close ORDER BY timestamp DESC) AS closes,
+        MAX(high) AS max_high,
+        MIN(low) AS min_low,
+        AVG(price_usd) AS avg_price_usd
+    FROM
+        foundation.token_hours_data
+    WHERE
+        token_id = %(token_id)s
+    GROUP BY
+        FLOOR(EXTRACT(EPOCH FROM timestamp) / %(interval)s)
+    ORDER BY
+        interval_start
+""")
+
+delete_older_data = sql.SQL("""DELETE FROM foundation.token_hours_data WHERE period_start_unix < %(interval_start)s""")
+
+
 # Singleton pattern implemented to ensure one instance of the class used throughout
 class DatabaseManager:
+    """
+    Manages database connections and operations. Uses a singleton pattern to ensure only one instance exists.
+    """
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -61,6 +86,9 @@ class DatabaseManager:
         return cls._instance
 
     def __init__(self, host, port, user, password, db, schema):
+        """
+        Sets up the database connection using provided credentials and database information.
+        """
         if not hasattr(self, 'initialized'):
             self.DB_HOST = host
             self.DB_PORT = port
@@ -72,6 +100,9 @@ class DatabaseManager:
             self.initialized = True
 
     def init_connection_pool(self):
+        """
+        Initializes a pool of database connections.
+        """
         return pool.ThreadedConnectionPool(
             minconn=MIN_CONN,
             maxconn=MAX_CONN,
@@ -84,6 +115,9 @@ class DatabaseManager:
 
     @contextmanager
     def get_db_connection(self):
+        """
+        Provides a database connection from the pool. Ensures the connection is returned to the pool afterward.
+        """
         connection = self.connection_pool.getconn()
         try:
             yield connection
@@ -92,6 +126,9 @@ class DatabaseManager:
 
     @contextmanager
     def get_db_cursor(self, commit=False):
+        """
+        Provides a database cursor for executing queries. Commits changes if `commit` is True.
+        """
         with self.get_db_connection() as connection:
             cursor = connection.cursor(cursor_factory=DictCursor)
             try:
@@ -105,6 +142,9 @@ class DatabaseManager:
                 cursor.close()
 
     def execute_write_query(self, query, record):
+        """
+        Executes a write query and returns the number of affected rows and any generated ID.
+        """
         count = 0
         return_id = ""
         try:
@@ -119,6 +159,9 @@ class DatabaseManager:
         return count, return_id
 
     def execute_read_query(self, query, record):
+        """
+        Executes a read query with parameters and returns the result as a list of dictionaries.
+        """
         count = 0
         data = []
         try:
@@ -133,6 +176,9 @@ class DatabaseManager:
         return count, data
 
     def execute_read_without_condition(self, query):
+        """
+        Executes a read query without any conditions and returns all results as a list of dictionaries.
+        """
         count = 0
         data = []
         try:
@@ -146,6 +192,9 @@ class DatabaseManager:
         return count, data
 
     def execute_batch_insert(self, query, records):
+        """
+        Executes a batch insert query, inserting multiple records at once.
+        """
         count = 0
         try:
             with self.get_db_cursor(commit=True) as cursor:
